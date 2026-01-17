@@ -1,1 +1,968 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Curse of the Warlock</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; touch-action: none; }
+body { overflow: hidden; background: #000; font-family: Arial, sans-serif; user-select: none; }
+#gameCanvas { display: block; cursor: crosshair; }
 
+.hero-select {
+  position: fixed;
+  inset: 0;
+  background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+
+.title {
+  font-size: 48px;
+  font-weight: bold;
+  background: linear-gradient(90deg, #ffd700, #ff6b6b, #a855f7);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  margin-bottom: 40px;
+  animation: glow 2s infinite;
+}
+
+@keyframes glow {
+  0%, 100% { filter: brightness(1); }
+  50% { filter: brightness(1.3); }
+}
+
+.hero-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 200px);
+  gap: 20px;
+}
+
+.hero-card {
+  background: rgba(0,0,0,0.6);
+  border: 3px solid;
+  border-radius: 15px;
+  padding: 20px;
+  cursor: pointer;
+  transition: all 0.3s;
+  text-align: center;
+}
+
+.hero-card:hover {
+  transform: translateY(-10px) scale(1.05);
+}
+
+.hero-icon {
+  font-size: 60px;
+  margin-bottom: 10px;
+}
+
+.hero-name {
+  font-size: 18px;
+  font-weight: bold;
+  color: white;
+  margin-bottom: 5px;
+}
+
+.hero-role {
+  font-size: 13px;
+  color: #aaa;
+}
+
+.ui-overlay {
+  position: fixed;
+  pointer-events: none;
+  z-index: 100;
+}
+
+.top-hud {
+  top: 15px;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: space-between;
+  padding: 0 20px;
+}
+
+.hero-info, .score-board {
+  background: rgba(0,0,0,0.85);
+  padding: 15px 20px;
+  border-radius: 12px;
+  border: 2px solid #ffd700;
+  color: white;
+}
+
+.hero-name-text {
+  font-size: 20px;
+  font-weight: bold;
+  color: #ffd700;
+  margin-bottom: 10px;
+}
+
+.stat-row {
+  display: flex;
+  gap: 15px;
+  font-size: 14px;
+}
+
+.bar {
+  width: 120px;
+  height: 8px;
+  background: #333;
+  border-radius: 4px;
+  overflow: hidden;
+  margin-top: 3px;
+}
+
+.bar-fill {
+  height: 100%;
+  transition: width 0.3s;
+}
+
+.hp-bar { background: linear-gradient(90deg, #ff0000, #ff6666); }
+.mp-bar { background: linear-gradient(90deg, #0066ff, #66b3ff); }
+
+.bottom-ui {
+  bottom: 20px;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  padding: 0 20px;
+}
+
+.joystick-area {
+  width: 150px;
+  height: 150px;
+  position: relative;
+  pointer-events: all;
+}
+
+.joystick-base {
+  width: 120px;
+  height: 120px;
+  background: rgba(255,255,255,0.15);
+  border: 3px solid rgba(255,255,255,0.4);
+  border-radius: 50%;
+  position: absolute;
+  top: 15px;
+  left: 15px;
+}
+
+.joystick-stick {
+  width: 50px;
+  height: 50px;
+  background: rgba(255,255,255,0.8);
+  border: 3px solid #fff;
+  border-radius: 50%;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  transition: all 0.05s;
+}
+
+.abilities {
+  display: flex;
+  gap: 12px;
+  pointer-events: all;
+}
+
+.ability-btn {
+  width: 70px;
+  height: 70px;
+  background: linear-gradient(135deg, rgba(0,0,50,0.9), rgba(20,20,80,0.9));
+  border: 3px solid #4444ff;
+  border-radius: 10px;
+  color: white;
+  font-size: 11px;
+  cursor: pointer;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+}
+
+.ability-btn:active {
+  transform: scale(0.95);
+}
+
+.ability-btn.ult {
+  border-color: #ff00ff;
+  box-shadow: 0 0 15px rgba(255,0,255,0.5);
+}
+
+.ability-btn.cd {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.cd-text {
+  position: absolute;
+  font-size: 24px;
+  color: #fff;
+}
+
+.minimap {
+  width: 180px;
+  height: 180px;
+  background: rgba(0,0,0,0.8);
+  border: 3px solid #666;
+  border-radius: 10px;
+  position: relative;
+  pointer-events: all;
+}
+
+.gold {
+  position: fixed;
+  bottom: 220px;
+  right: 30px;
+  background: rgba(0,0,0,0.9);
+  padding: 12px 25px;
+  border-radius: 10px;
+  border: 3px solid #ffd700;
+  color: #ffd700;
+  font-size: 22px;
+  font-weight: bold;
+  z-index: 100;
+}
+
+.notification {
+  position: fixed;
+  top: 120px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0,0,0,0.95);
+  padding: 15px 35px;
+  border-radius: 10px;
+  border: 3px solid #ffd700;
+  color: #ffd700;
+  font-size: 18px;
+  font-weight: bold;
+  z-index: 9999;
+  animation: slideIn 0.5s;
+}
+
+@keyframes slideIn {
+  from { top: 80px; opacity: 0; }
+  to { top: 120px; opacity: 1; }
+}
+
+.damage {
+  position: fixed;
+  font-size: 22px;
+  font-weight: bold;
+  color: #ff0000;
+  text-shadow: 2px 2px 0 #000;
+  animation: floatUp 1s;
+  z-index: 9998;
+  pointer-events: none;
+}
+
+@keyframes floatUp {
+  0% { opacity: 1; transform: translateY(0) scale(0.8); }
+  50% { transform: translateY(-40px) scale(1.2); }
+  100% { opacity: 0; transform: translateY(-80px); }
+}
+
+.level-up {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: linear-gradient(135deg, #ffd700, #ff8c00);
+  padding: 30px 60px;
+  border-radius: 20px;
+  border: 5px solid #fff;
+  font-size: 36px;
+  font-weight: bold;
+  color: #000;
+  z-index: 9999;
+  animation: levelAnim 2s;
+}
+
+@keyframes levelAnim {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
+  20% { opacity: 1; transform: translate(-50%, -50%) scale(1.2); }
+  80% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  100% { opacity: 0; }
+}
+</style>
+</head>
+<body>
+
+<canvas id="gameCanvas"></canvas>
+
+<div class="hero-select" id="heroSelect">
+  <div class="title">⚔️ CURSE OF THE WARLOCK ⚔️</div>
+  <div class="hero-grid" id="heroGrid"></div>
+</div>
+
+<div class="ui-overlay top-hud" id="topHud" style="display:none;">
+  <div class="hero-info">
+    <div class="hero-name-text" id="heroName">Герой</div>
+    <div class="stat-row">
+      <div>
+        <div>HP: <span id="hpText">0/0</span></div>
+        <div class="bar"><div class="bar-fill hp-bar" id="hpBar" style="width:100%"></div></div>
+      </div>
+      <div>
+        <div>MP: <span id="mpText">0/0</span></div>
+        <div class="bar"><div class="bar-fill mp-bar" id="mpBar" style="width:100%"></div></div>
+      </div>
+      <div>Ур. <span id="level">1</span></div>
+    </div>
+  </div>
+  <div class="score-board">
+    <div style="display:flex;gap:30px;font-size:22px;">
+      <span style="color:#90ee90">⚔️ <span id="radiantScore">0</span></span>
+      <span style="color:#ff6666"><span id="direScore">0</span> ⚔️</span>
+    </div>
+    <div style="text-align:center;margin-top:5px;">⏱️ <span id="gameTime">0:00</span></div>
+  </div>
+</div>
+
+<div class="ui-overlay bottom-ui" id="bottomUi" style="display:none;">
+  <div class="joystick-area" id="joystickArea">
+    <div class="joystick-base"></div>
+    <div class="joystick-stick" id="joystick"></div>
+  </div>
+  <div class="abilities" id="abilities"></div>
+  <div class="minimap" id="minimap"></div>
+</div>
+
+<div class="gold" id="gold" style="display:none;">💰 <span id="goldAmount">625</span></div>
+
+<script>
+const CONFIG = {
+  MAP_SIZE: 5000,
+  CREEP_SPAWN: 30000,
+  TOWER_RANGE: 350,
+};
+
+const HEROES = {
+  fruit: { name: "Фрут-Мастер", emoji: "🍍", color: "#FFD700", hp: 850, mp: 420, dmg: 50, speed: 3.2 },
+  moon: { name: "Селена", emoji: "🌙", color: "#87CEEB", hp: 550, mp: 650, dmg: 62, speed: 3.5 },
+  poison: { name: "Гнилоуст", emoji: "☠️", color: "#32CD32", hp: 620, mp: 580, dmg: 58, speed: 3.1 },
+  druid: { name: "Друид-Изгой", emoji: "🌿", color: "#228B22", hp: 680, mp: 600, dmg: 54, speed: 3.3 },
+  wind: { name: "Ловец Ветров", emoji: "🦅", color: "#FF6347", hp: 590, mp: 460, dmg: 72, speed: 4.0 },
+  inferno: { name: "Инферно", emoji: "🔥", color: "#FF4500", hp: 520, mp: 700, dmg: 68, speed: 3.4 }
+};
+
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+let gameState = 'select';
+let player = null;
+let camera = { x: 0, y: 0 };
+let structures = [];
+let creeps = [];
+let projectiles = [];
+let particles = [];
+
+let joystickX = 0, joystickY = 0;
+let gameTime = 0;
+let lastCreepSpawn = 0;
+let radiantKills = 0, direKills = 0;
+
+function resize() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+resize();
+window.addEventListener('resize', resize);
+
+// Hero Selection
+const heroGrid = document.getElementById('heroGrid');
+Object.entries(HEROES).forEach(([key, hero]) => {
+  const card = document.createElement('div');
+  card.className = 'hero-card';
+  card.style.borderColor = hero.color;
+  card.innerHTML = `
+    <div class="hero-icon">${hero.emoji}</div>
+    <div class="hero-name">${hero.name}</div>
+    <div class="hero-role">HP: ${hero.hp} | MP: ${hero.mp}</div>
+  `;
+  card.onclick = () => selectHero(key);
+  heroGrid.appendChild(card);
+});
+
+function selectHero(key) {
+  const hero = HEROES[key];
+  player = {
+    x: 1200, y: 4200,
+    vx: 0, vy: 0,
+    speed: hero.speed,
+    radius: 25,
+    hp: hero.hp,
+    maxHp: hero.hp,
+    mp: hero.mp,
+    maxMp: hero.mp,
+    gold: 625,
+    level: 1,
+    color: hero.color,
+    heroKey: key,
+    damage: hero.dmg,
+    alive: true
+  };
+
+  document.getElementById('heroSelect').style.display = 'none';
+  document.getElementById('topHud').style.display = 'flex';
+  document.getElementById('bottomUi').style.display = 'flex';
+  document.getElementById('gold').style.display = 'block';
+  document.getElementById('heroName').textContent = hero.name;
+
+  initAbilities();
+  initGame();
+  gameState = 'playing';
+  gameLoop(performance.now());
+}
+
+function initAbilities() {
+  const panel = document.getElementById('abilities');
+  ['Q', 'W', 'R'].forEach((key, i) => {
+    const btn = document.createElement('div');
+    btn.className = 'ability-btn' + (i === 2 ? ' ult' : '');
+    btn.id = 'ability' + key;
+    btn.innerHTML = key;
+    btn.onclick = () => useAbility(key.toLowerCase());
+    panel.appendChild(btn);
+  });
+}
+
+function initGame() {
+  // Create structures
+  const lanes = [
+    { radiant: [[800,3800],[1600,3000],[2400,2200]], dire: [[3800,800],[3000,1600],[2200,2400]] },
+    { radiant: [[800,800],[2000,2000],[3200,3200]], dire: [[4400,4400],[2600,2600],[1400,1400]] },
+    { radiant: [[3800,800],[3000,1600],[2200,2400]], dire: [[800,3800],[1600,3000],[2400,2200]] }
+  ];
+
+  lanes.forEach(lane => {
+    ['radiant', 'dire'].forEach(team => {
+      lane[team].forEach(([x,y]) => {
+        structures.push({
+          type: 'tower', team, x, y,
+          hp: 2500, maxHp: 2500,
+          radius: 45, range: CONFIG.TOWER_RANGE,
+          damage: 180, alive: true, lastAttack: 0
+        });
+      });
+    });
+  });
+
+  spawnCreeps();
+  createParticles();
+}
+
+function spawnCreeps() {
+  const spawns = [
+    { radiant: [600,4000], dire: [4000,600] },
+    { radiant: [600,600], dire: [4400,4400] },
+    { radiant: [4000,600], dire: [600,4000] }
+  ];
+
+  spawns.forEach(spawn => {
+    ['radiant', 'dire'].forEach(team => {
+      const [x, y] = spawn[team];
+      for (let i = 0; i < 4; i++) {
+        creeps.push({
+          x: x + (Math.random()-0.5)*100,
+          y: y + (Math.random()-0.5)*100,
+          team,
+          hp: 400, maxHp: 400,
+          radius: 12, speed: 1.8,
+          damage: 30, gold: 40, exp: 65,
+          alive: true, target: null, lastAttack: 0
+        });
+      }
+    });
+  });
+}
+
+function createParticles() {
+  for (let i = 0; i < 100; i++) {
+    particles.push({
+      x: Math.random() * CONFIG.MAP_SIZE,
+      y: Math.random() * CONFIG.MAP_SIZE,
+      vx: (Math.random()-0.5)*0.5,
+      vy: (Math.random()-0.5)*0.5,
+      size: Math.random()*2+1,
+      alpha: Math.random()*0.3+0.1
+    });
+  }
+}
+
+// Input
+const joystickArea = document.getElementById('joystickArea');
+const joystick = document.getElementById('joystick');
+
+function handleJoystick(e) {
+  e.preventDefault();
+  const touch = e.touches ? e.touches[0] : e;
+  const rect = joystickArea.getBoundingClientRect();
+  const cx = rect.left + rect.width/2;
+  const cy = rect.top + rect.height/2;
+  
+  let dx = touch.clientX - cx;
+  let dy = touch.clientY - cy;
+  const dist = Math.sqrt(dx*dx + dy*dy);
+  const max = 40;
+  
+  if (dist > max) {
+    dx = dx/dist*max;
+    dy = dy/dist*max;
+  }
+  
+  joystickX = dx/max;
+  joystickY = dy/max;
+  joystick.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+}
+
+function resetJoystick() {
+  joystickX = 0;
+  joystickY = 0;
+  joystick.style.transform = 'translate(-50%, -50%)';
+}
+
+joystickArea.addEventListener('touchstart', handleJoystick);
+joystickArea.addEventListener('touchmove', handleJoystick);
+joystickArea.addEventListener('touchend', resetJoystick);
+joystickArea.addEventListener('mousedown', handleJoystick);
+document.addEventListener('mousemove', (e) => {
+  if (e.buttons === 1 && e.target === joystickArea) handleJoystick(e);
+});
+document.addEventListener('mouseup', resetJoystick);
+
+let keys = {};
+window.addEventListener('keydown', e => {
+  keys[e.key.toLowerCase()] = true;
+  if (e.key.toLowerCase() === 'q') useAbility('q');
+  if (e.key.toLowerCase() === 'w') useAbility('w');
+  if (e.key.toLowerCase() === 'r') useAbility('r');
+});
+window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
+
+// Abilities
+let abilities = { q: {cd:0, maxCd:4000}, w: {cd:0, maxCd:12000}, r: {cd:0, maxCd:90000} };
+
+function useAbility(key) {
+  if (!player || !player.alive) return;
+  const ability = abilities[key];
+  if (ability.cd > 0 || player.mp < 50) return;
+
+  player.mp -= 50;
+  ability.cd = ability.maxCd;
+
+  const angle = Math.atan2(canvas.height/2 - player.y + camera.y, canvas.width/2 - player.x + camera.x);
+  
+  projectiles.push({
+    x: player.x, y: player.y,
+    vx: Math.cos(angle)*10,
+    vy: Math.sin(angle)*10,
+    damage: key === 'r' ? 300 : 120,
+    radius: 15,
+    color: player.color,
+    team: 'radiant',
+    dist: 0, maxDist: 600
+  });
+}
+
+// Game Loop
+function gameLoop(timestamp) {
+  if (gameState !== 'playing') return;
+
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // Spawn creeps
+  if (timestamp - lastCreepSpawn > CONFIG.CREEP_SPAWN) {
+    spawnCreeps();
+    lastCreepSpawn = timestamp;
+  }
+
+  // Update player
+  if (player && player.alive) {
+    let dx = joystickX;
+    let dy = joystickY;
+    
+    if (keys['w'] || keys['arrowup']) dy = -1;
+    if (keys['s'] || keys['arrowdown']) dy = 1;
+    if (keys['a'] || keys['arrowleft']) dx = -1;
+    if (keys['d'] || keys['arrowright']) dx = 1;
+
+    if (dx || dy) {
+      const mag = Math.sqrt(dx*dx + dy*dy);
+      player.vx = (dx/mag) * player.speed;
+      player.vy = (dy/mag) * player.speed;
+    } else {
+      player.vx = 0;
+      player.vy = 0;
+    }
+
+    player.x += player.vx;
+    player.y += player.vy;
+    player.x = Math.max(25, Math.min(CONFIG.MAP_SIZE-25, player.x));
+    player.y = Math.max(25, Math.min(CONFIG.MAP_SIZE-25, player.y));
+
+    if (player.mp < player.maxMp) player.mp = Math.min(player.maxMp, player.mp + 0.8);
+  }
+
+  // Camera
+  if (player) {
+    camera.x = player.x - canvas.width/2;
+    camera.y = player.y - canvas.height/2;
+    camera.x = Math.max(0, Math.min(CONFIG.MAP_SIZE - canvas.width, camera.x));
+    camera.y = Math.max(0, Math.min(CONFIG.MAP_SIZE - canvas.height, camera.y));
+  }
+
+  // Draw
+  drawMap();
+  drawParticles();
+  drawStructures();
+  drawCreeps(timestamp);
+  drawProjectiles();
+  if (player && player.alive) drawPlayer();
+
+  updateUI();
+  updateAbilityUI(timestamp);
+
+  gameTime = timestamp;
+  requestAnimationFrame(gameLoop);
+}
+
+function drawMap() {
+  ctx.fillStyle = '#0a0e1a';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // Lanes
+  ctx.strokeStyle = 'rgba(42,42,62,0.5)';
+  ctx.lineWidth = 100;
+  ctx.lineCap = 'round';
+  
+  ctx.beginPath();
+  ctx.moveTo(600-camera.x, 4000-camera.y);
+  ctx.lineTo(4000-camera.x, 600-camera.y);
+  ctx.stroke();
+  
+  ctx.beginPath();
+  ctx.moveTo(600-camera.x, 600-camera.y);
+  ctx.lineTo(4400-camera.x, 4400-camera.y);
+  ctx.stroke();
+  
+  ctx.beginPath();
+  ctx.moveTo(4000-camera.x, 600-camera.y);
+  ctx.lineTo(600-camera.x, 4000-camera.y);
+  ctx.stroke();
+}
+
+function drawParticles() {
+  particles.forEach(p => {
+    p.x += p.vx;
+    p.y += p.vy;
+    if (p.x < 0 || p.x > CONFIG.MAP_SIZE) p.x = Math.random()*CONFIG.MAP_SIZE;
+    if (p.y < 0 || p.y > CONFIG.MAP_SIZE) p.y = Math.random()*CONFIG.MAP_SIZE;
+
+    ctx.globalAlpha = p.alpha;
+    ctx.fillStyle = '#6699ff';
+    ctx.beginPath();
+    ctx.arc(p.x-camera.x, p.y-camera.y, p.size, 0, Math.PI*2);
+    ctx.fill();
+  });
+  ctx.globalAlpha = 1;
+}
+
+function drawPlayer() {
+  const x = player.x - camera.x;
+  const y = player.y - camera.y;
+
+  ctx.fillStyle = player.color;
+  ctx.shadowBlur = 20;
+  ctx.shadowColor = player.color;
+  ctx.beginPath();
+  ctx.arc(x, y, player.radius, 0, Math.PI*2);
+  ctx.fill();
+  ctx.shadowBlur = 0;
+
+  ctx.strokeStyle = '#fff';
+  ctx.lineWidth = 3;
+  ctx.stroke();
+
+  drawHealthBar(player, x, y-35);
+  drawStaff(x, y);
+}
+
+function drawStaff(x, y) {
+  const hero = HEROES[player.heroKey];
+  ctx.save();
+  ctx.translate(x, y);
+
+  // Simple staff representation
+  ctx.strokeStyle = '#8B4513';
+  ctx.lineWidth = 5;
+  ctx.beginPath();
+  ctx.moveTo(0, 10);
+  ctx.lineTo(0, 50);
+  ctx.stroke();
+
+  // Top ornament based on hero
+  ctx.fillStyle = hero.color;
+  ctx.shadowBlur = 15;
+  ctx.shadowColor = hero.color;
+  ctx.beginPath();
+  ctx.arc(0, -15, 12, 0, Math.PI*2);
+  ctx.fill();
+  ctx.shadowBlur = 0;
+
+  ctx.fillStyle = '#000';
+  ctx.font = '20px Arial';
+  ctx.textAlign = 'center';
+  ctx.fillText(hero.emoji, 0, -8);
+
+  ctx.restore();
+}
+
+function drawStructures() {
+  structures.forEach(s => {
+    if (!s.alive) return;
+    const x = s.x - camera.x;
+    const y = s.y - camera.y;
+
+    ctx.fillStyle = s.team === 'radiant' ? '#4a9d4a' : '#cc4444';
+    ctx.shadowBlur = 15;
+    ctx.shadowColor = s.team === 'radiant' ? '#90ee90' : '#ff6666';
+    
+    ctx.beginPath();
+    ctx.moveTo(x, y-s.radius);
+    ctx.lineTo(x+s.radius*0.7, y+s.radius*0.5);
+    ctx.lineTo(x, y+s.radius);
+    ctx.lineTo(x-s.radius*0.7, y+s.radius*0.5);
+    ctx.closePath();
+    ctx.fill();
+    ctx.shadowBlur = 0;
+
+    ctx.strokeStyle = '#ffd700';
+    ctx.lineWidth = 3;
+    ctx.stroke();
+
+    drawHealthBar(s, x, y-55);
+  });
+}
+
+function drawCreeps(timestamp) {
+  creeps.forEach((c, idx) => {
+    if (!c.alive) {
+      if (timestamp - (c.deathTime || 0) > 5000) creeps.splice(idx, 1);
+      return;
+    }
+
+    // Simple AI
+    if (!c.target || !c.target.alive || dist(c, c.target) > 800) {
+      c.target = findNearest(c, [...structures.filter(s => s.alive && s.team !== c.team)]);
+    }
+
+    if (c.target) {
+      const d = dist(c, c.target);
+      if (d > 100) {
+        const angle = Math.atan2(c.target.y - c.y, c.target.x - c.x);
+        c.x += Math.cos(angle) * c.speed;
+        c.y += Math.sin(angle) * c.speed;
+      }
+    }
+
+    const x = c.x - camera.x;
+    const y = c.y - camera.y;
+
+    ctx.fillStyle = c.team === 'radiant' ? '#90ee90' : '#ff6666';
+    ctx.beginPath();
+    ctx.arc(x, y, c.radius, 0, Math.PI*2);
+    ctx.fill();
+
+    drawHealthBar(c, x, y-20);
+  });
+}
+
+function drawProjectiles() {
+  projectiles.forEach((p, idx) => {
+    p.x += p.vx;
+    p.y += p.vy;
+    p.dist += Math.sqrt(p.vx*p.vx + p.vy*p.vy);
+
+    if (p.dist > p.maxDist) {
+      projectiles.splice(idx, 1);
+      return;
+    }
+
+    // Hit detection
+    [...creeps, ...structures].forEach(t => {
+      if (!t.alive || t.team === p.team) return;
+      if (dist(p, t) < p.radius + t.radius) {
+        dealDamage(t, p.damage, p.x, p.y);
+        projectiles.splice(idx, 1);
+      }
+    });
+
+    ctx.fillStyle = p.color;
+    ctx.shadowBlur = 20;
+    ctx.shadowColor = p.color;
+    ctx.beginPath();
+    ctx.arc(p.x-camera.x, p.y-camera.y, p.radius, 0, Math.PI*2);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+  });
+}
+
+function drawHealthBar(entity, x, y) {
+  const w = 40;
+  const h = 6;
+  const pct = entity.hp / entity.maxHp;
+
+  ctx.fillStyle = '#333';
+  ctx.fillRect(x-w/2, y, w, h);
+  
+  ctx.fillStyle = pct > 0.5
+  ctx.fillStyle = pct > 0.5 ? '#0f0' : pct > 0.25 ? '#ff0' : '#f00';
+  ctx.fillRect(x-w/2, y, w*pct, h);
+  
+  ctx.strokeStyle = '#000';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(x-w/2, y, w, h);
+}
+
+function dealDamage(target, damage, x, y) {
+  target.hp -= damage;
+  
+  // Damage number
+  const dmg = document.createElement('div');
+  dmg.className = 'damage';
+  dmg.textContent = `-${Math.round(damage)}`;
+  dmg.style.left = x + 'px';
+  dmg.style.top = y + 'px';
+  document.body.appendChild(dmg);
+  setTimeout(() => dmg.remove(), 1000);
+
+  if (target.hp <= 0) {
+    target.alive = false;
+    target.deathTime = gameTime;
+    
+    if (target.gold && player) {
+      player.gold += target.gold;
+      if (target.team === 'dire') radiantKills++;
+      else direKills++;
+    }
+    
+    if (target.type === 'tower') {
+      showNotification(`${target.team === 'dire' ? 'Radiant' : 'Dire'} башня уничтожена!`);
+    }
+  }
+}
+
+function updateUI() {
+  if (!player) return;
+  
+  document.getElementById('hpText').textContent = `${Math.round(player.hp)}/${player.maxHp}`;
+  document.getElementById('mpText').textContent = `${Math.round(player.mp)}/${player.maxMp}`;
+  document.getElementById('hpBar').style.width = (player.hp/player.maxHp*100) + '%';
+  document.getElementById('mpBar').style.width = (player.mp/player.maxMp*100) + '%';
+  document.getElementById('level').textContent = player.level;
+  document.getElementById('goldAmount').textContent = player.gold;
+  document.getElementById('radiantScore').textContent = radiantKills;
+  document.getElementById('direScore').textContent = direKills;
+  
+  const mins = Math.floor(gameTime/60000);
+  const secs = Math.floor((gameTime%60000)/1000);
+  document.getElementById('gameTime').textContent = `${mins}:${secs.toString().padStart(2,'0')}`;
+  
+  drawMinimap();
+}
+
+function updateAbilityUI(timestamp) {
+  ['q','w','r'].forEach(key => {
+    const ability = abilities[key];
+    const btn = document.getElementById('ability' + key.toUpperCase());
+    if (!btn) return;
+    
+    if (ability.cd > 0) {
+      ability.cd = Math.max(0, ability.cd - 16);
+      btn.classList.add('cd');
+      const cdSec = Math.ceil(ability.cd/1000);
+      btn.innerHTML = `<span class="cd-text">${cdSec}</span>`;
+    } else {
+      btn.classList.remove('cd');
+      btn.innerHTML = key.toUpperCase();
+    }
+  });
+}
+
+function drawMinimap() {
+  const mini = document.getElementById('minimap');
+  const mctx = mini.getContext('2d');
+  if (!mctx) return;
+  
+  const scale = 180 / CONFIG.MAP_SIZE;
+  
+  mctx.fillStyle = '#0a0e1a';
+  mctx.fillRect(0, 0, 180, 180);
+  
+  // Structures
+  structures.forEach(s => {
+    if (!s.alive) return;
+    mctx.fillStyle = s.team === 'radiant' ? '#4a9d4a' : '#cc4444';
+    mctx.fillRect(s.x*scale-2, s.y*scale-2, 4, 4);
+  });
+  
+  // Player
+  if (player && player.alive) {
+    mctx.fillStyle = player.color;
+    mctx.beginPath();
+    mctx.arc(player.x*scale, player.y*scale, 3, 0, Math.PI*2);
+    mctx.fill();
+  }
+  
+  // Border
+  mctx.strokeStyle = '#666';
+  mctx.lineWidth = 2;
+  mctx.strokeRect(0, 0, 180, 180);
+}
+
+function showNotification(text) {
+  const notif = document.createElement('div');
+  notif.className = 'notification';
+  notif.textContent = text;
+  document.body.appendChild(notif);
+  setTimeout(() => notif.remove(), 3000);
+}
+
+function dist(a, b) {
+  const dx = a.x - b.x;
+  const dy = a.y - b.y;
+  return Math.sqrt(dx*dx + dy*dy);
+}
+
+function findNearest(entity, targets) {
+  let nearest = null;
+  let minDist = Infinity;
+  targets.forEach(t => {
+    const d = dist(entity, t);
+    if (d < minDist) {
+      minDist = d;
+      nearest = t;
+    }
+  });
+  return nearest;
+}
+
+// Initialize minimap canvas
+const minimapEl = document.getElementById('minimap');
+const minimapCanvas = document.createElement('canvas');
+minimapCanvas.width = 180;
+minimapCanvas.height = 180;
+minimapEl.appendChild(minimapCanvas);
+
+</script>
+</body>
+</html>
